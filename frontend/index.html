@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flood Monitoring System | Real-Time IoT Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js for real-time water level graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- Top Navigation / Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="title-group">
+        <div class="logo-icon">🌊</div>
+        <div>
+          <h1>Flood Monitoring System</h1>
+          <p class="subtitle">Real-Time IoT Water Level Monitoring</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- ESP32 Online/Offline Connection Badge -->
+        <div id="connectionBadge" class="badge badge-offline">
+          <span class="badge-dot"></span>
+          <span id="connectionText">ESP32 OFFLINE</span>
+        </div>
+
+        <!-- Web Audio Buzzer Controls -->
+        <div class="audio-controls">
+          <button id="btnEnableAudio" class="btn btn-audio-enable" title="Click to allow audible alarm in browser">
+            🔊 Enable Sound Alerts
+          </button>
+          <button id="btnTestAudio" class="btn btn-audio-test" style="display: none;" title="Test the buzzer sound on your speakers">
+            🔔 Test Sound
+          </button>
+          <button id="btnMuteAudio" class="btn btn-audio-mute" style="display: none;" title="Mute or Unmute Alarm">
+            🔇 Mute
+          </button>
+          <span id="audioStatusText" class="audio-status-label">Sound: Disabled</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="dashboard-container">
+
+    <!-- Alert Panel Banner -->
+    <section class="alert-section">
+      <div id="alertBanner" class="alert-banner alert-info">
+        <div class="alert-icon" id="alertIcon">ℹ️</div>
+        <div class="alert-content">
+          <h3 id="alertTitle">Initializing System</h3>
+          <p id="alertMessage">Connecting to backend and awaiting ESP32 telemetry...</p>
+        </div>
+        <div id="alertTimestamp" class="alert-timestamp">--:--:--</div>
+      </div>
+    </section>
+
+    <!-- Visual Warning LEDs Row -->
+    <section class="led-section">
+      <div class="card led-card">
+        <h2 class="card-title">System Alert Level Indicators</h2>
+        <div class="led-container">
+          <!-- Green LED - Normal -->
+          <div class="led-item" id="ledItemGreen">
+            <div class="led-bulb led-green" id="ledGreen"></div>
+            <div class="led-info">
+              <span class="led-label">NORMAL</span>
+              <span class="led-subtext">&lt; 60%</span>
+            </div>
+          </div>
+
+          <!-- Yellow LED - Warning -->
+          <div class="led-item" id="ledItemYellow">
+            <div class="led-bulb led-yellow" id="ledYellow"></div>
+            <div class="led-info">
+              <span class="led-label">WARNING</span>
+              <span class="led-subtext">60% – 84.99%</span>
+            </div>
+          </div>
+
+          <!-- Red LED - Danger -->
+          <div class="led-item" id="ledItemRed">
+            <div class="led-bulb led-red" id="ledRed"></div>
+            <div class="led-info">
+              <span class="led-label">DANGER</span>
+              <span class="led-subtext">≥ 85% or Float Active</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Grid: Water Tank Card + Sensor Status Cards -->
+    <section class="grid-layout">
+
+      <!-- Water Level & Tank Visualization Card -->
+      <div class="card tank-card">
+        <h2 class="card-title">Water Level Overview</h2>
+        
+        <div class="tank-card-body">
+          <!-- Vertical Water Tank Visualization -->
+          <div class="tank-container">
+            <div class="tank-scale">
+              <span>100%</span>
+              <span>75%</span>
+              <span>50%</span>
+              <span>25%</span>
+              <span>0%</span>
+            </div>
+            <div class="water-tank" id="waterTank">
+              <div class="danger-line" title="Danger threshold: 85%"></div>
+              <div class="warning-line" title="Warning threshold: 60%"></div>
+              <div class="water-fill" id="waterFill" style="height: 0%;">
+                <div class="water-wave"></div>
+                <div class="water-inner-glow"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Numerical Metrics -->
+          <div class="tank-metrics">
+            <div class="metric-highlight">
+              <span class="metric-label">Water Level</span>
+              <div class="metric-value-large">
+                <span id="valPercent">--</span><span class="metric-unit">%</span>
+              </div>
+            </div>
+
+            <div class="metrics-subgrid">
+              <div class="metric-box">
+                <span class="box-icon">📏</span>
+                <div>
+                  <span class="box-label">Water Depth</span>
+                  <div class="box-val"><span id="valDepth">--</span> <small>cm</small></div>
+                </div>
+              </div>
+
+              <div class="metric-box">
+                <span class="box-icon">📡</span>
+                <div>
+                  <span class="box-label">Sensor Distance</span>
+                  <div class="box-val"><span id="valDistance">--</span> <small>cm</small></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sensor Status Cards Grid -->
+      <div class="sensors-grid">
+
+        <!-- Rain Sensor Card -->
+        <div class="card sensor-card" id="cardRain">
+          <div class="sensor-header">
+            <span class="sensor-icon">🌧️</span>
+            <span class="sensor-title">Rain Sensor</span>
+          </div>
+          <div class="sensor-body">
+            <div class="sensor-state" id="valRainDetected">--</div>
+            <div class="sensor-subinfo">
+              Raw Value: <strong id="valRainRaw">--</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Float Switch Card -->
+        <div class="card sensor-card" id="cardFloat">
+          <div class="sensor-header">
+            <span class="sensor-icon">🎛️</span>
+            <span class="sensor-title">Emergency Float Switch</span>
+          </div>
+          <div class="sensor-body">
+            <div class="sensor-state" id="valFloatState">--</div>
+            <div class="sensor-subinfo">
+              Contact: <strong id="valFloatSub">Checking...</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Water Rise Rate Card -->
+        <div class="card sensor-card" id="cardRiseRate">
+          <div class="sensor-header">
+            <span class="sensor-icon">📈</span>
+            <span class="sensor-title">Water Rise Rate</span>
+          </div>
+          <div class="sensor-body">
+            <div class="sensor-state" id="valRiseRate">--</div>
+            <div class="sensor-subinfo">Rate of surface change</div>
+          </div>
+        </div>
+
+        <!-- Last Updated Card -->
+        <div class="card sensor-card" id="cardLastUpdated">
+          <div class="sensor-header">
+            <span class="sensor-icon">⏱️</span>
+            <span class="sensor-title">Last Updated</span>
+          </div>
+          <div class="sensor-body">
+            <div class="sensor-state sensor-time" id="valLastUpdated">--:--:--</div>
+            <div class="sensor-subinfo" id="valLastSeen">Awaiting signal</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Real-Time Chart Section -->
+    <section class="chart-section">
+      <div class="card chart-card">
+        <div class="chart-header">
+          <div>
+            <h2 class="card-title">Live Water Level Trend</h2>
+            <p class="card-subtitle">Real-time water percentage with 60% warning &amp; 85% danger thresholds (updates every 2s)</p>
+          </div>
+          <div class="chart-legend-custom">
+            <span class="legend-chip chip-normal"><span class="dot dot-normal"></span> Normal</span>
+            <span class="legend-chip chip-warning"><span class="dot dot-warning"></span> Warning (60%)</span>
+            <span class="legend-chip chip-danger"><span class="dot dot-danger"></span> Danger (85%)</span>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="waterChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <p>ESP32 Flood Monitoring System &bull; Local IoT Dashboard &bull; FastAPI + SQLite + Vanilla JS</p>
+    </div>
+  </footer>
+
+  <!-- Application Logic -->
+  <script src="script.js"></script>
+</body>
+</html>
+
